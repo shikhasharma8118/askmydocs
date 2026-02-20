@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: #e9f0ec;
+  --app-sidebar: #f1f6f2;
+  --app-surface: #f5f9f6;
+  --app-soft: #f8fbf9;
+  --app-border: #d6e0da;
+  --app-text: #2f3d37;
+  --app-muted: #6a7a73;
+  --app-primary: #3d6658;
+  --app-primary-hover: #4a7868;
+  --app-bubble-user: #3f6f5f;
+  --app-bubble-ai: #e9f1ed;
+}
+
+:root[data-theme="blue-gray"] {
+  --app-bg: #dbe4ef;
+  --app-sidebar: #e7eef6;
+  --app-surface: #f1f4f8;
+  --app-soft: #f4f7fa;
+  --app-border: #cfd9e6;
+  --app-text: #33423d;
+  --app-muted: #6a7a74;
+  --app-primary: #445b75;
+  --app-primary-hover: #54708d;
+  --app-bubble-user: #4f6d8f;
+  --app-bubble-ai: #e8eff7;
+}
+
+:root[data-theme="warm-paper"] {
+  --app-bg: #f4efe6;
+  --app-sidebar: #efe8dc;
+  --app-surface: #f7f2ea;
+  --app-soft: #fdfaf5;
+  --app-border: #ddd3c3;
+  --app-text: #4a4237;
+  --app-muted: #7a7062;
+  --app-primary: #5f5240;
+  --app-primary-hover: #6b5d49;
+  --app-bubble-user: #7a6650;
+  --app-bubble-ai: #f0e9df;
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+.app-bg { background-color: var(--app-bg); }
+.app-sidebar { background-color: var(--app-sidebar); }
+.app-surface { background-color: var(--app-surface); }
+.app-soft { background-color: var(--app-soft); }
+.app-border { border-color: var(--app-border); }
+.app-text { color: var(--app-text); }
+.app-muted { color: var(--app-muted); }
+.app-primary { background-color: var(--app-primary); }
+.app-primary:hover { background-color: var(--app-primary-hover); }
+.app-primary-border { border-color: var(--app-primary); }
+.app-bubble-user { background-color: var(--app-bubble-user); }
+.app-bubble-ai { background-color: var(--app-bubble-ai); }
+.app-nav-item { color: var(--app-muted); }
+.app-nav-item:hover {
+  background-color: var(--app-soft);
+  color: var(--app-text);
+}
+.app-input {
+  border: 1px solid var(--app-border);
+  background-color: var(--app-surface);
+  color: var(--app-text);
+}
+.app-input:focus {
+  border-color: var(--app-primary);
+  outline: none;
+}
+
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  text-size-adjust: none;
+}
+
+.pdf-text-layer span {
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0 0;
+  color: transparent;
+}
+
+.docx-fit-width .docx-wrapper,
+.docx-fit-width .docx {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+@keyframes citationPulse {
+  0% { box-shadow: 0 0 0 0 rgba(232, 194, 74, 0.55); }
+  100% { box-shadow: 0 0 0 10px rgba(232, 194, 74, 0); }
+}
+
+.citation-pulse {
+  animation: citationPulse 0.65s ease-out;
+}

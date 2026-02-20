@@ -1,0 +1,4 @@
+# Create root .gitignore
+echo ".env
+.DS_Store
+*.log" > .gitignore
