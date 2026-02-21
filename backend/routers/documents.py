@@ -1,16 +1,36 @@
 import uuid
+from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from middleware.auth_middleware import get_current_user
 from models.database import Document, User, get_db
-from models.schemas import DocumentPreviewResponse, DocumentResponse
+from models.schemas import DocumentPreviewResponse, DocumentResponse, DocumentSummaryResponse
 from services.document_index import build_document_index, delete_document_index, load_document_index
+from services.gemini_service import generate_document_summary
 from services.storage import upload_file_to_storage
 
 router = APIRouter(prefix="/documents", tags=["documents"])
+
+
+def _basic_summary_from_chunks(text_chunks: list[str], filename: str) -> str | None:
+    cleaned = [chunk.strip() for chunk in text_chunks if isinstance(chunk, str) and chunk.strip()]
+    if not cleaned:
+        return None
+
+    preview = " ".join(cleaned)[:1600].strip()
+    if not preview:
+        return None
+
+    return (
+        f"Main Topic:\n{filename or 'Document'}\n\n"
+        "Key Points:\n"
+        f"- {preview}\n\n"
+        "Important Details:\n"
+        "- This summary was generated from extracted text because AI summary was unavailable."
+    )
 
 
 def _resolve_preview_type(mime_type: str, filename: str) -> str:
@@ -62,6 +82,13 @@ def upload_document(
 
         indexed_pages = build_document_index(str(document.id), file_bytes, filename, mime_type)
         document.status = "indexed" if indexed_pages > 0 else "error"
+        if indexed_pages > 0:
+            pages = load_document_index(str(document.id))
+            text_chunks = [str(page.get("text", "")).strip() for page in pages if str(page.get("text", "")).strip()]
+            summary = generate_document_summary(text_chunks, filename)
+            document.summary = summary or _basic_summary_from_chunks(text_chunks, filename)
+            if document.summary:
+                document.summary_generated_at = datetime.utcnow()
 
         db.commit()
         db.refresh(document)
@@ -124,6 +151,56 @@ def preview_document(
         preview_type=preview_type,
         content=content,
         file_url=document.supabase_url,
+    )
+
+
+@router.get("/{document_id}/summary", response_model=DocumentSummaryResponse)
+def get_document_summary(
+    document_id: str,
+    refresh: bool = Query(default=False),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> DocumentSummaryResponse:
+    """Return the stored summary for a selected document."""
+
+    try:
+        doc_uuid = uuid.UUID(document_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid document id.",
+        ) from exc
+
+    document = (
+        db.query(Document)
+        .filter(Document.id == doc_uuid, Document.user_id == current_user.id)
+        .first()
+    )
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
+    stale_fallback = "This summary was generated from extracted text because AI summary was unavailable."
+    needs_refresh = refresh or not document.summary or stale_fallback in str(document.summary or "")
+
+    if needs_refresh:
+        pages = load_document_index(str(document.id))
+        text_chunks = [str(page.get("text", "")).strip() for page in pages if str(page.get("text", "")).strip()]
+        if text_chunks:
+            summary = generate_document_summary(text_chunks, document.filename)
+            document.summary = summary or _basic_summary_from_chunks(text_chunks, document.filename)
+            if document.summary:
+                document.summary_generated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(document)
+
+    return DocumentSummaryResponse(
+        id=str(document.id),
+        filename=document.filename,
+        summary=document.summary,
+        summary_generated_at=document.summary_generated_at,
     )
 
 

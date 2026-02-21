@@ -54,16 +54,18 @@ export default function ChatsPage() {
   const [message, setMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewData, setPreviewData] = useState(null);
+  const [docSummary, setDocSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
   const [selectedCitationId, setSelectedCitationId] = useState("");
-  const [connectorPath, setConnectorPath] = useState("");
   const [pdfjsApi, setPdfjsApi] = useState(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState("");
+  const [pdfUseIframeFallback, setPdfUseIframeFallback] = useState(false);
   const [viewerZoom, setViewerZoom] = useState(100);
   const [viewerFitWidth, setViewerFitWidth] = useState(true);
   const [viewerFullscreen, setViewerFullscreen] = useState(false);
-  const [highlightPulse, setHighlightPulse] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: "ai-1",
@@ -88,9 +90,15 @@ export default function ChatsPage() {
     return `${API_BASE_URL}${previewData.file_url.startsWith("/") ? previewData.file_url : `/${previewData.file_url}`}`;
   }, [previewData]);
 
-  const workspaceRef = useRef(null);
-  const highlightRef = useRef(null);
-  const citationButtonRefs = useRef(new Map());
+  const buildPdfViewerUrl = useCallback(
+    (baseUrl, pageNumber) => {
+      const safePage = Math.max(1, Number(pageNumber || 1));
+      const zoomPart = viewerFitWidth ? "page-width" : `${viewerZoom}`;
+      return `${baseUrl}#page=${safePage}&zoom=${zoomPart}`;
+    },
+    [viewerFitWidth, viewerZoom],
+  );
+
   const pdfCanvasRef = useRef(null);
   const pdfTextLayerRef = useRef(null);
   const viewerShellRef = useRef(null);
@@ -113,32 +121,6 @@ export default function ChatsPage() {
       return null;
     }
   }
-
-  const updateConnector = useCallback(() => {
-    if (!selectedCitationId || !workspaceRef.current || !highlightRef.current) {
-      setConnectorPath("");
-      return;
-    }
-
-    const citationEl = citationButtonRefs.current.get(selectedCitationId);
-    if (!citationEl) {
-      setConnectorPath("");
-      return;
-    }
-
-    const workspaceRect = workspaceRef.current.getBoundingClientRect();
-    const citationRect = citationEl.getBoundingClientRect();
-    const highlightRect = highlightRef.current.getBoundingClientRect();
-
-    const x1 = citationRect.right - workspaceRect.left + 4;
-    const y1 = citationRect.top + citationRect.height / 2 - workspaceRect.top;
-    const x2 = highlightRect.left - workspaceRect.left - 4;
-    const y2 = highlightRect.top + Math.min(22, highlightRect.height / 2) - workspaceRect.top;
-
-    const dx = Math.max((x2 - x1) * 0.45, 32);
-    const path = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-    setConnectorPath(path);
-  }, [selectedCitationId]);
 
   useEffect(() => {
     setUser(readStoredUser());
@@ -205,6 +187,8 @@ export default function ChatsPage() {
         }
       setViewerZoom(100);
       setViewerFitWidth(true);
+      setPdfUseIframeFallback(false);
+      setPdfError("");
       setPreviewData(data);
       } catch (err) {
         const messageText = err instanceof Error ? err.message : "Failed to load file preview.";
@@ -218,18 +202,41 @@ export default function ChatsPage() {
   }, [activeDocumentId, router]);
 
   useEffect(() => {
-    updateConnector();
-    const onResize = () => updateConnector();
-    window.addEventListener("resize", onResize);
-    window.addEventListener("scroll", onResize, true);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("scroll", onResize, true);
+    const loadSummary = async () => {
+      if (!activeDocumentId) {
+        setDocSummary("");
+        return;
+      }
+
+      const token = getAccessToken();
+      if (!token) {
+        return;
+      }
+
+      setSummaryLoading(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/documents/${activeDocumentId}/summary?refresh=true`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await parseJsonSafely(response);
+        if (!response.ok) {
+          setDocSummary("");
+          return;
+        }
+        setDocSummary(typeof data?.summary === "string" ? data.summary : "");
+      } catch {
+        setDocSummary("");
+      } finally {
+        setSummaryLoading(false);
+      }
     };
-  }, [updateConnector, messages, selectedSource, previewData]);
+
+    loadSummary();
+  }, [activeDocumentId]);
 
   const renderPdfVerification = useCallback(async () => {
     if (
+      pdfUseIframeFallback ||
       !pdfjsApi ||
       !activeDocumentUrl ||
       previewData?.preview_type !== "pdf" ||
@@ -309,12 +316,14 @@ export default function ChatsPage() {
         });
       }
     } catch {
-      setPdfError("Could not render PDF verification preview.");
+      setPdfUseIframeFallback(true);
+      setPdfError("PDF.js rendering failed. Switched to compatible viewer.");
     } finally {
       setPdfBusy(false);
     }
   }, [
     activeDocumentUrl,
+    pdfUseIframeFallback,
     pdfjsApi,
     previewData?.preview_type,
     selectedSource?.page,
@@ -326,16 +335,6 @@ export default function ChatsPage() {
   useEffect(() => {
     renderPdfVerification();
   }, [renderPdfVerification]);
-
-  useEffect(() => {
-    if (!selectedSource || !highlightRef.current) {
-      return;
-    }
-    highlightRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    setHighlightPulse(true);
-    const timer = window.setTimeout(() => setHighlightPulse(false), 650);
-    return () => window.clearTimeout(timer);
-  }, [selectedSource]);
 
   useEffect(() => {
     const onFsChange = () => {
@@ -378,6 +377,22 @@ export default function ChatsPage() {
       setLogoutLoading(false);
     }
   };
+
+  const handleCitationClick = useCallback(
+    (source, citationId) => {
+      setSelectedSource(source);
+      setSelectedCitationId(citationId);
+
+      // Keep the right-side viewer focused when a citation is clicked.
+      viewerShellRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+      // For scrollable viewers, ensure the navigated page/content is visible from the top.
+      if (pdfScrollRef.current) {
+        pdfScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    },
+    [],
+  );
 
   const handleSend = async () => {
     const trimmed = message.trim();
@@ -446,8 +461,7 @@ export default function ChatsPage() {
         }
       }
       if (aiMessage.sources.length) {
-        setSelectedSource(aiMessage.sources[0]);
-        setSelectedCitationId(`${aiMessage.id}-source-0`);
+        handleCitationClick(aiMessage.sources[0], `${aiMessage.id}-source-0`);
       }
       setMessages((prev) => [...prev, aiMessage]);
     } catch (err) {
@@ -468,9 +482,9 @@ export default function ChatsPage() {
   };
 
   return (
-    <main className="h-screen overflow-hidden app-bg app-text">
-      <div className="h-screen grid grid-cols-1 lg:grid-cols-[248px_1fr]">
-        <aside className="hidden lg:block border-r app-border app-sidebar px-4 py-6">
+    <main className="min-h-screen lg:h-[100dvh] lg:overflow-hidden app-bg app-text">
+      <div className="min-h-screen lg:h-full grid grid-cols-1 lg:grid-cols-[248px_1fr]">
+        <aside className="hidden lg:block border-r app-border app-sidebar px-4 py-6 overflow-y-auto">
           <div className="px-2">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] app-text">ASKMYDOCS</p>
             <h1 className="mt-1 text-xl font-semibold app-text">Workspace</h1>
@@ -540,14 +554,42 @@ export default function ChatsPage() {
           </button>
         </aside>
 
-        <section className="px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6 flex flex-col h-screen overflow-hidden antialiased [text-rendering:optimizeLegibility]">
+        <section className="px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6 flex flex-col min-h-screen lg:h-full overflow-y-auto lg:overflow-hidden antialiased [text-rendering:optimizeLegibility]">
           <header className="rounded-2xl border app-border app-surface px-5 py-4 shadow-sm">
             <p className="text-xs uppercase tracking-wide app-muted">Currently chatting with:</p>
             <h2 className="mt-1 text-lg font-semibold app-text">{activeDocumentName}</h2>
           </header>
 
-          <div ref={workspaceRef} className="relative mt-4 grid flex-1 min-h-0 gap-4 lg:grid-cols-[40%_60%]">
+          <div className="mt-4 grid gap-4 lg:grid-cols-[40%_60%] lg:flex-1 lg:min-h-0">
             <div className="rounded-2xl border app-border app-surface p-4 shadow-sm flex min-h-0 flex-col">
+              <div className="sticky top-0 z-10 rounded-xl border app-border app-soft app-surface/95 backdrop-blur supports-[backdrop-filter]:app-surface/85 shadow-[0_8px_18px_-14px_rgba(15,23,42,0.45)] p-3 mb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs uppercase tracking-wide app-muted">Document Summary</p>
+                  {!summaryLoading && docSummary ? (
+                    <button
+                      type="button"
+                      onClick={() => setSummaryExpanded((v) => !v)}
+                      className="rounded-md border app-border app-soft px-2 py-0.5 text-[11px] app-muted"
+                    >
+                      {summaryExpanded ? "Show less" : "Show more"}
+                    </button>
+                  ) : null}
+                </div>
+                {summaryLoading ? (
+                  <p className="mt-1 text-sm app-muted">Generating summary...</p>
+                ) : docSummary ? (
+                  <pre
+                    className={`mt-1 whitespace-pre-wrap text-sm leading-relaxed app-text ${
+                      summaryExpanded ? "max-h-72 overflow-y-auto" : "max-h-28 overflow-y-auto"
+                    }`}
+                  >
+                    {docSummary}
+                  </pre>
+                ) : (
+                  <p className="mt-1 text-sm app-muted">No summary available yet for this document.</p>
+                )}
+              </div>
+
               <div className="flex-1 min-h-0 overflow-y-auto">
                 <div className="mx-auto max-w-4xl space-y-4">
                   {messages.map((item) => (
@@ -569,19 +611,9 @@ export default function ChatsPage() {
                               <button
                                 key={`${item.id}-source-${idx}`}
                                 type="button"
-                                ref={(el) => {
-                                  const key = `${item.id}-source-${idx}`;
-                                  if (el) {
-                                    citationButtonRefs.current.set(key, el);
-                                  } else {
-                                    citationButtonRefs.current.delete(key);
-                                  }
-                                }}
-                                onClick={() => {
-                                  setSelectedSource(source);
-                                  setSelectedCitationId(`${item.id}-source-${idx}`);
-                                  requestAnimationFrame(() => updateConnector());
-                                }}
+                                onClick={() =>
+                                  handleCitationClick(source, `${item.id}-source-${idx}`)
+                                }
                                 className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
                                   selectedCitationId === `${item.id}-source-${idx}`
                                     ? "border-[#6b8fe3] bg-[#dce8ff] text-[#2f4f9a]"
@@ -701,24 +733,35 @@ export default function ChatsPage() {
                 {previewLoading ? (
                   <div className="h-full flex items-center justify-center text-sm app-muted">Loading viewer...</div>
                 ) : previewData?.preview_type === "pdf" ? (
-                  <div className="relative h-full overflow-auto bg-white">
-                    {pdfBusy ? (
-                      <div className="sticky top-0 z-10 bg-white/85 px-3 py-1.5 text-xs text-slate-600">
-                        Rendering page {selectedSource?.page || 1}...
-                      </div>
-                    ) : null}
-                    {pdfError ? (
-                      <div className="px-3 py-2 text-xs text-rose-700">{pdfError}</div>
-                    ) : null}
-                    <div className="relative mx-auto w-fit p-3">
-                      <canvas ref={pdfCanvasRef} className="block rounded-sm shadow-sm" />
-                      <div
-                        ref={pdfTextLayerRef}
-                        className="pdf-text-layer pointer-events-none absolute left-3 top-3 select-none"
-                        style={{ transformOrigin: "0 0" }}
+                  pdfUseIframeFallback ? (
+                    <div className="relative h-full bg-white">
+                      {pdfError ? <div className="px-3 py-2 text-xs text-amber-700">{pdfError}</div> : null}
+                      <iframe
+                        src={buildPdfViewerUrl(activeDocumentUrl, selectedSource?.page)}
+                        title={activeDocumentName}
+                        className="h-full w-full"
                       />
                     </div>
-                  </div>
+                  ) : (
+                    <div className="relative h-full overflow-auto bg-white">
+                      {pdfBusy ? (
+                        <div className="sticky top-0 z-10 bg-white/85 px-3 py-1.5 text-xs text-slate-600">
+                          Rendering page {selectedSource?.page || 1}...
+                        </div>
+                      ) : null}
+                      {pdfError ? (
+                        <div className="px-3 py-2 text-xs text-rose-700">{pdfError}</div>
+                      ) : null}
+                      <div className="relative mx-auto w-fit p-3">
+                        <canvas ref={pdfCanvasRef} className="block rounded-sm shadow-sm" />
+                        <div
+                          ref={pdfTextLayerRef}
+                          className="pdf-text-layer pointer-events-none absolute left-3 top-3 select-none"
+                          style={{ transformOrigin: "0 0" }}
+                        />
+                      </div>
+                    </div>
+                  )
                 ) : previewData?.preview_type === "image" ? (
                   <img
                     src={activeDocumentUrl}
@@ -747,39 +790,7 @@ export default function ChatsPage() {
                 )}
               </div>
 
-              <div className="mt-3 rounded-xl border app-border app-soft p-3">
-                <p className="text-xs uppercase tracking-wide app-muted">Highlighted Source</p>
-                {selectedSource ? (
-                  <div className="mt-2 space-y-2">
-                    <span className="inline-flex items-center rounded-full border border-[#e1cf79] bg-[#fff8cf] px-2 py-0.5 text-[11px] font-medium text-[#856a00]">
-                      Page {selectedSource.page}
-                    </span>
-                    <p
-                      ref={highlightRef}
-                      className={`rounded-lg border border-[#eadc98] bg-[#fff6bf] px-3 py-2 text-sm leading-relaxed text-[#4d430f] ${
-                        highlightPulse ? "citation-pulse" : ""
-                      }`}
-                    >
-                      {selectedSource.snippet || "Source snippet unavailable."}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-sm app-muted">Click a citation badge to highlight the exact source.</p>
-                )}
-              </div>
             </aside>
-
-            {connectorPath ? (
-              <svg className="pointer-events-none absolute inset-0 z-20 hidden lg:block" aria-hidden="true">
-                <defs>
-                  <linearGradient id="verifyLink" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#6b8fe3" />
-                    <stop offset="100%" stopColor="#e0b84f" />
-                  </linearGradient>
-                </defs>
-                <path d={connectorPath} stroke="url(#verifyLink)" strokeWidth="2.5" fill="none" strokeDasharray="5 5" />
-              </svg>
-            ) : null}
           </div>
 
           <div className="mt-3 text-xs app-muted">

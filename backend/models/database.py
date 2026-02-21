@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Any, Generator
 
 from fastapi import HTTPException, status
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, create_engine, text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, create_engine, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, declarative_base, relationship, sessionmaker
@@ -64,6 +64,8 @@ class Document(Base):
     supabase_url = Column(String, nullable=False)
     file_size_bytes = Column(Integer, default=0)
     status = Column(String, default="processing")
+    summary = Column(Text, nullable=True)
+    summary_generated_at = Column(DateTime, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="documents")
@@ -102,6 +104,18 @@ def init_db() -> None:
                 text(
                     "ALTER TABLE documents "
                     "ADD COLUMN IF NOT EXISTS mime_type VARCHAR DEFAULT 'application/octet-stream'"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE documents "
+                    "ADD COLUMN IF NOT EXISTS summary TEXT"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE documents "
+                    "ADD COLUMN IF NOT EXISTS summary_generated_at TIMESTAMP"
                 )
             )
     except SQLAlchemyError as exc:

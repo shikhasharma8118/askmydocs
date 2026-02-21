@@ -107,7 +107,8 @@ def build_document_index(document_id: str, file_bytes: bytes, filename: str, mim
         else:
             text = _extract_text_file(file_bytes)
             pages = _build_pages_for_generic_text(text)
-    except Exception:
+    except Exception as e:
+        print(f"ERROR building index: {e}")
         pages = []
 
     payload = {"document_id": document_id, "filename": filename, "mime_type": mime_type, "pages": pages}

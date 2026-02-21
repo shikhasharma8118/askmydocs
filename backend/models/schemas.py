@@ -45,6 +45,8 @@ class DocumentResponse(BaseModel):
     mime_type: str = "application/octet-stream"
     file_size_bytes: int = 0
     status: str
+    summary: str | None = None
+    summary_generated_at: datetime | None = None
     uploaded_at: datetime
     supabase_url: str
 
@@ -100,3 +102,12 @@ class DocumentPreviewResponse(BaseModel):
     preview_type: str
     content: str | None = None
     file_url: str | None = None
+
+
+class DocumentSummaryResponse(BaseModel):
+    """Response model for returning a stored document summary."""
+
+    id: str
+    filename: str
+    summary: str | None = None
+    summary_generated_at: datetime | None = None

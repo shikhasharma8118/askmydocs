@@ -109,17 +109,21 @@ def _fallback_summary(question: str, sources: list[dict[str, Any]]) -> str:
         for sentence in sentences:
             sentence_tokens = set(_tokens(sentence))
             overlap = len(question_tokens.intersection(sentence_tokens))
-            scored.append((overlap, len(sentence), sentence))
-        scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
-        picked = [item[2] for item in scored[:3] if item[2]]
+            cleaned = re.sub(r"\s+", " ", sentence).strip()
+            non_alnum_ratio = sum(1 for c in cleaned if not c.isalnum() and not c.isspace()) / max(len(cleaned), 1)
+            scored.append((overlap, -non_alnum_ratio, len(cleaned), cleaned))
+        scored.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+        picked = [item[3][:220].rstrip(" ,;:") + "." for item in scored[:3] if item[3]]
     else:
-        picked = sentences[:3]
+        picked = [re.sub(r"\s+", " ", s).strip()[:220].rstrip(" ,;:") + "." for s in sentences[:3]]
 
     if not picked:
         picked = [combined[:420].strip()]
 
-    summary = " ".join(picked).strip()
-    return summary if summary else "I could not summarize this content yet."
+    summary = "\n".join(f"- {line}" for line in picked).strip()
+    if not summary:
+        return "I could not summarize this content yet."
+    return f"Based on the document, here is the best available summary:\n{summary}"
 
 
 def answer_question_from_index(
@@ -143,7 +147,7 @@ def answer_question_from_index(
     for score, page in selected:
         page_number = int(page.get("page", 0) or 0)
         text = str(page.get("text", ""))
-        snippet = text[:320].strip()
+        snippet = re.sub(r"\s+", " ", text[:1200]).strip()
         if not snippet:
             continue
         sources.append(

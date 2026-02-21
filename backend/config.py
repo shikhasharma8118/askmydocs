@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_KEY: str
     SUPABASE_BUCKET: str = "documents"
     DATABASE_URL: str
+    DB_INIT_ON_STARTUP: bool = True
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_SECONDS: int = 3600

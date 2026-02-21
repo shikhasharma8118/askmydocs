@@ -7,7 +7,7 @@ from config import settings
 
 
 def create_access_token(user_id: str, email: str) -> str:
-    expiration = datetime.utcnow() + timedelta(hours=settings.JWT_EXPIRATION_HOURS)
+    expiration = datetime.utcnow() + timedelta(seconds=settings.JWT_EXPIRATION_SECONDS)
     payload = {
         "sub": user_id,
         "email": email,
