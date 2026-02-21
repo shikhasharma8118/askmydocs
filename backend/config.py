@@ -1,20 +1,9 @@
-"""
-Configuration management using Pydantic Settings.
-Loads and validates all environment variables from .env file.
-"""
-
-from dotenv import load_dotenv
-from pydantic_settings import BaseSettings
-
-# Load environment variables from .env file
-load_dotenv()
-
-
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     GEMINI_API_KEY: str | None = None
-    FIREBASE_SERVICE_ACCOUNT_PATH: str
+    FIREBASE_SERVICE_ACCOUNT_PATH: str | None = None
+    FIREBASE_SERVICE_ACCOUNT_JSON: str | None = None
     SUPABASE_URL: str
     SUPABASE_SERVICE_KEY: str
     SUPABASE_BUCKET: str = "documents"
@@ -29,7 +18,3 @@ class Settings(BaseSettings):
         "case_sensitive": True,
         "extra": "ignore",
     }
-
-
-# Global settings instance
-settings = Settings()
