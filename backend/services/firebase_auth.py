@@ -23,3 +23,28 @@ def _get_firebase_app():
             # Fall back to file path (for local development)
             cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_PATH)
         return firebase_admin.initialize_app(cred)
+
+
+def verify_firebase_token(firebase_token: str) -> dict:
+    """Verify Firebase ID token and return decoded payload."""
+
+    token = (firebase_token or "").strip()
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Firebase token is required.",
+        )
+
+    try:
+        app = _get_firebase_app()
+        decoded = auth.verify_id_token(token, app=app)
+        if not isinstance(decoded, dict):
+            raise ValueError("Invalid token payload")
+        return decoded
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Firebase token.",
+        ) from exc
