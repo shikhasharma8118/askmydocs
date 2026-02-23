@@ -7,6 +7,7 @@ import {
   signInWithRedirect,
 } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { auth, googleProvider } from "../lib/firebase";
 
@@ -49,7 +50,7 @@ async function getFreshFirebaseToken(user) {
   return token;
 }
 
-export default function LoginPage() {
+function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isPreviewMode = searchParams.get("preview") === "1";
@@ -246,5 +247,13 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPage />
+    </Suspense>
   );
 }

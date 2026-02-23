@@ -2,6 +2,7 @@
 
 import { signOut } from "firebase/auth";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Download,
@@ -43,7 +44,7 @@ function readStoredUser() {
   }
 }
 
-export default function ChatsPage() {
+function ChatsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [user, setUser] = useState(null);
@@ -482,7 +483,7 @@ export default function ChatsPage() {
   };
 
   return (
-    <main className="min-h-screen lg:h-[100dvh] lg:overflow-hidden app-bg app-text">
+    <main className="min-h-screen lg:h-dvh lg:overflow-hidden app-bg app-text">
       <div className="min-h-screen lg:h-full grid grid-cols-1 lg:grid-cols-[248px_1fr]">
         <aside className="hidden lg:block border-r app-border app-sidebar px-4 py-6 overflow-y-auto">
           <div className="px-2">
@@ -799,5 +800,13 @@ export default function ChatsPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function ChatsPageWrapper() {
+  return (
+    <Suspense fallback={null}>
+      <ChatsPage />
+    </Suspense>
   );
 }
