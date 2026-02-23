@@ -501,7 +501,10 @@ function ChatsPage() {
       <div className="min-h-screen lg:h-full grid grid-cols-1 lg:grid-cols-[248px_1fr]">
         <aside className="hidden lg:block border-r app-border app-sidebar px-4 py-6 overflow-y-auto">
           <div className="px-2">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] app-text">ASKMYDOCS</p>
+            <div className="flex items-center gap-2">
+              <img src="/logo_of_app.png" alt="AskMyDocs" className="h-8 w-8 rounded-md object-cover" />
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] app-text">ASKMYDOCS</p>
+            </div>
             <h1 className="mt-1 text-xl font-semibold app-text">Workspace</h1>
           </div>
 
