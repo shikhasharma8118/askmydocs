@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { auth, googleProvider } from "../lib/firebase";
+import { withAutoAvatar } from "../lib/avatar";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
 const REQUEST_TIMEOUT_MS = 15000;
@@ -89,7 +90,7 @@ function LoginPage() {
       localStorage.setItem("access_token", authData.access_token);
 
       if (authData?.user) {
-        localStorage.setItem("current_user", JSON.stringify(authData.user));
+        localStorage.setItem("current_user", JSON.stringify(withAutoAvatar(authData.user)));
         router.replace("/app");
         return;
       }
@@ -114,7 +115,7 @@ function LoginPage() {
         throw new Error(meData?.detail || "Failed to load user profile");
       }
 
-      localStorage.setItem("current_user", JSON.stringify(meData));
+      localStorage.setItem("current_user", JSON.stringify(withAutoAvatar(meData)));
       router.replace("/app");
     },
     [router],

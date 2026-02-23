@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { auth } from "../../lib/firebase";
+import { buildAutoAvatarUrl } from "../../lib/avatar";
 import DocxPreview from "../../components/DocxPreview";
 import { getValidAccessToken } from "../../lib/session";
 import { APP_THEMES, applyTheme, getSavedTheme, THEME_KEY } from "../../lib/theme";
@@ -111,7 +112,9 @@ export default function MainAppPage() {
   const [previewZoom, setPreviewZoom] = useState(100);
   const [previewFitWidth, setPreviewFitWidth] = useState(true);
   const [previewFullscreen, setPreviewFullscreen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const profileMenuRef = useRef(null);
 
   const clearSession = () => {
     localStorage.removeItem("access_token");
@@ -166,6 +169,17 @@ export default function MainAppPage() {
 
   useEffect(() => {
     setUser(readStoredUser());
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event) => {
+      if (!profileMenuRef.current || profileMenuRef.current.contains(event.target)) {
+        return;
+      }
+      setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
   useEffect(() => {
@@ -328,12 +342,7 @@ export default function MainAppPage() {
             </button>
           </nav>
 
-          <div className="mt-8 rounded-xl border app-border app-soft p-3 text-xs app-muted">
-            <p className="font-medium app-text">Signed in as</p>
-            <p className="mt-1 truncate">{user?.email || "Unknown user"}</p>
-          </div>
-
-          <div className="mt-4 rounded-xl border app-border app-soft p-3">
+          <div className="mt-8 rounded-xl border app-border app-soft p-3">
             <label className="block text-xs font-medium app-muted mb-2">Theme</label>
             <select
               value={theme}
@@ -347,18 +356,45 @@ export default function MainAppPage() {
               ))}
             </select>
           </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={loading}
-            className="mt-4 w-full rounded-xl border app-border app-soft px-4 py-2.5 text-sm font-medium app-text disabled:opacity-60"
-          >
-            {loading ? "Logging out..." : "Logout"}
-          </button>
         </aside>
 
         <section className="px-6 py-8 md:px-10">
+          <div className="mb-3 flex justify-end">
+            <div ref={profileMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setProfileOpen((v) => !v)}
+                className="h-10 w-10 overflow-hidden rounded-full border-2 app-border app-soft shadow-[0_4px_14px_rgba(15,23,42,0.22)] ring-2 ring-white/70"
+                title="Profile"
+              >
+                <img
+                  src={user?.avatar_url || buildAutoAvatarUrl(user)}
+                  alt="Profile avatar"
+                  className="h-full w-full object-cover"
+                />
+              </button>
+              {profileOpen ? (
+                <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border app-border app-surface p-3 shadow-lg">
+                  <p className="text-xs font-medium uppercase tracking-wide app-muted">Profile</p>
+                  <img
+                    src={user?.avatar_url || buildAutoAvatarUrl(user)}
+                    alt="Profile avatar"
+                    className="mt-2 h-10 w-10 rounded-full border app-border object-cover"
+                  />
+                  <p className="mt-2 text-sm font-semibold app-text truncate">{user?.display_name || "User"}</p>
+                  <p className="text-xs app-muted truncate">{user?.email || "Unknown user"}</p>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={loading}
+                    className="mt-3 w-full rounded-lg border app-border app-soft px-3 py-2 text-sm app-text disabled:opacity-60"
+                  >
+                    {loading ? "Logging out..." : "Logout"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
           <header>
             <p className="text-sm font-medium app-muted">Welcome back</p>
             <h2 className="mt-1 text-3xl font-semibold tracking-tight">

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { auth } from "../../../lib/firebase";
+import { buildAutoAvatarUrl } from "../../../lib/avatar";
 import DocxPreview from "../../../components/DocxPreview";
 import { getValidAccessToken } from "../../../lib/session";
 import { APP_THEMES, applyTheme, getSavedTheme, THEME_KEY } from "../../../lib/theme";
@@ -67,6 +68,7 @@ function ChatsPage() {
   const [viewerZoom, setViewerZoom] = useState(100);
   const [viewerFitWidth, setViewerFitWidth] = useState(true);
   const [viewerFullscreen, setViewerFullscreen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: "ai-1",
@@ -104,6 +106,7 @@ function ChatsPage() {
   const pdfTextLayerRef = useRef(null);
   const viewerShellRef = useRef(null);
   const pdfScrollRef = useRef(null);
+  const profileMenuRef = useRef(null);
 
   const clearSession = () => {
     localStorage.removeItem("access_token");
@@ -125,6 +128,17 @@ function ChatsPage() {
 
   useEffect(() => {
     setUser(readStoredUser());
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event) => {
+      if (!profileMenuRef.current || profileMenuRef.current.contains(event.target)) {
+        return;
+      }
+      setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
   }, []);
 
   useEffect(() => {
@@ -525,12 +539,7 @@ function ChatsPage() {
             </button>
           </nav>
 
-          <div className="mt-8 rounded-xl border app-border app-soft p-3 text-xs app-muted">
-            <p className="font-medium app-text">Signed in as</p>
-            <p className="mt-1 truncate">{user?.email || "Unknown user"}</p>
-          </div>
-
-          <div className="mt-4 rounded-xl border app-border app-soft p-3">
+          <div className="mt-8 rounded-xl border app-border app-soft p-3">
             <label className="block text-xs font-medium app-muted mb-2">Theme</label>
             <select
               value={theme}
@@ -544,18 +553,45 @@ function ChatsPage() {
               ))}
             </select>
           </div>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            disabled={logoutLoading}
-            className="mt-4 w-full rounded-xl border app-border app-soft px-4 py-2.5 text-sm font-medium app-text disabled:opacity-60"
-          >
-            {logoutLoading ? "Logging out..." : "Logout"}
-          </button>
         </aside>
 
         <section className="px-4 py-4 md:px-6 md:py-5 lg:px-8 lg:py-6 flex flex-col min-h-screen lg:h-full overflow-y-auto lg:overflow-hidden antialiased [text-rendering:optimizeLegibility]">
+          <div className="mb-3 flex justify-end">
+            <div ref={profileMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setProfileOpen((v) => !v)}
+                className="h-10 w-10 overflow-hidden rounded-full border-2 app-border app-soft shadow-[0_4px_14px_rgba(15,23,42,0.22)] ring-2 ring-white/70"
+                title="Profile"
+              >
+                <img
+                  src={user?.avatar_url || buildAutoAvatarUrl(user)}
+                  alt="Profile avatar"
+                  className="h-full w-full object-cover"
+                />
+              </button>
+              {profileOpen ? (
+                <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border app-border app-surface p-3 shadow-lg">
+                  <p className="text-xs font-medium uppercase tracking-wide app-muted">Profile</p>
+                  <img
+                    src={user?.avatar_url || buildAutoAvatarUrl(user)}
+                    alt="Profile avatar"
+                    className="mt-2 h-10 w-10 rounded-full border app-border object-cover"
+                  />
+                  <p className="mt-2 text-sm font-semibold app-text truncate">{user?.display_name || "User"}</p>
+                  <p className="text-xs app-muted truncate">{user?.email || "Unknown user"}</p>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    disabled={logoutLoading}
+                    className="mt-3 w-full rounded-lg border app-border app-soft px-3 py-2 text-sm app-text disabled:opacity-60"
+                  >
+                    {logoutLoading ? "Logging out..." : "Logout"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
           <header className="rounded-2xl border app-border app-surface px-5 py-4 shadow-sm">
             <p className="text-xs uppercase tracking-wide app-muted">Currently chatting with:</p>
             <h2 className="mt-1 text-lg font-semibold app-text">{activeDocumentName}</h2>
