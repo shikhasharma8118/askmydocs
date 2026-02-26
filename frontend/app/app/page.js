@@ -19,12 +19,13 @@ import {
 } from "lucide-react";
 
 import { auth } from "../../lib/firebase";
+import { getApiBaseUrl } from "../../lib/api";
 import { buildAutoAvatarUrl } from "../../lib/avatar";
 import DocxPreview from "../../components/DocxPreview";
 import { getValidAccessToken } from "../../lib/session";
 import { APP_THEMES, applyTheme, getSavedTheme, THEME_KEY } from "../../lib/theme";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = getApiBaseUrl();
 
 function readStoredUser() {
   if (typeof window === "undefined") {

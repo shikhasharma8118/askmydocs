@@ -16,11 +16,12 @@ import {
 } from "lucide-react";
 
 import { auth } from "../../../lib/firebase";
+import { getApiBaseUrl } from "../../../lib/api";
 import { buildAutoAvatarUrl } from "../../../lib/avatar";
 import { getValidAccessToken } from "../../../lib/session";
 import { APP_THEMES, applyTheme, getSavedTheme, THEME_KEY } from "../../../lib/theme";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = getApiBaseUrl();
 const ANSWER_EXPORTS_KEY = "askmydocs_answer_exports";
 const STORE_ANSWERS_KEY = "askmydocs_store_answers";
 const PRIVATE_PREVIEW_KEY = "askmydocs_private_preview";

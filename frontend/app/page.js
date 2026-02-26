@@ -9,10 +9,11 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { getApiBaseUrl } from "../lib/api";
 import { auth, googleProvider } from "../lib/firebase";
 import { withAutoAvatar } from "../lib/avatar";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = getApiBaseUrl();
 const REQUEST_TIMEOUT_MS = 15000;
 
 async function parseJsonSafely(response) {
