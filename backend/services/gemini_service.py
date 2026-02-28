@@ -7,7 +7,7 @@ from google.genai import types
 from config import settings
 
 _CLIENT = None
-_MODEL_NAME = "gemini-3-flash-preview"
+_MODEL_NAME = "gemini-2.5-flash"
 _MAX_SUMMARY_CHARS = 18000
 _MAX_ANSWER_CONTEXT_CHARS = 9000
 

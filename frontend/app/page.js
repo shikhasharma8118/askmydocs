@@ -14,7 +14,7 @@ import { auth, googleProvider } from "../lib/firebase";
 import { withAutoAvatar } from "../lib/avatar";
 
 const API_BASE_URL = getApiBaseUrl();
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 45000;
 
 async function parseJsonSafely(response) {
   try {
@@ -149,6 +149,11 @@ function LoginPage() {
     const unsubscribe = onAuthStateChanged(auth, () => {});
     return () => unsubscribe();
   }, [exchangeFirebaseToken, isPreviewMode, router]);
+
+  useEffect(() => {
+    // Best-effort wake-up for sleeping backend instances before auth exchange.
+    fetchWithTimeout(`${API_BASE_URL}/health`, {}, 10000).catch(() => {});
+  }, []);
 
   const handleGoogleAuth = async () => {
     setLoading(true);
